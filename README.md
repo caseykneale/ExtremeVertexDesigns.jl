@@ -36,4 +36,4 @@ federov_D( 4, evs; k = 1e-6 )
 ```
 
 ## Credits
-Thank you to Júlio Hoffimann, and Benoît Legat for helping me grok Polyhedra.jl.
+Thank you to Júlio Hoffimann, and Benoît Legat for helping me grok Polyhedra.jl and improving some code.
