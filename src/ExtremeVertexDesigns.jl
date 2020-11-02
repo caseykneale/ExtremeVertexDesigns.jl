@@ -31,10 +31,11 @@ module ExtremeVertexDesigns
     federov_D(Ndesign::Int, candidates::Matrix; k = 1e-6)
 
         Performs Federov exchange algorithm to select a D-optimal design from a candidate matrix.
-        Note: k is a ridge parameter to invert a matrix. This will be swapped out for an
+        Follows: Cook & Nachtsheim (1980).
+        Note: λ is a ridge parameter to invert a matrix. This will be swapped out for an
         invertible starting design algorithm later...
     """
-    function federov_D(Ndesign::Int, candidates::Matrix; k = 1e-6)
+    function federov_D(Ndesign::Int, candidates::Matrix; λ = 1e-6)
         Nsupport, V = size(candidates)
         @assert Ndesign < Nsupport "Design points must be < than support candidates."
         init_samples = sample(1:Nsupport, Ndesign; replace = false)
@@ -42,7 +43,7 @@ module ExtremeVertexDesigns
         Xsupport = candidates[ setdiff(1:Nsupport, init_samples),:]
         Nsupport -= Ndesign 
         #ToDo: implement invertible starting design algorithm.
-        tihkinov = Diagonal(ones(V) .* k)
+        tihkinov = Diagonal(ones(V) .* λ)
         
         while(true) 
             XdtXd       = inv( Xdesign' * Xdesign + tihkinov )
@@ -70,5 +71,52 @@ module ExtremeVertexDesigns
     end
     export federov_D
 
+    """
+    K_exchange_D(k::Int, Ndesign::Int, candidates::Matrix; ridge = 1e-6)
+
+        Performs the k-exchange algorithm to select a D-optimal design from a candidate matrix.
+        Follows: Johnson & Nachtsheim (1983).
+        Note: λ is a ridge parameter to invert a matrix. This will be swapped out for an
+        invertible starting design algorithm later...
+    """
+    function k_exchange_D(k::Int, Ndesign::Int, candidates::Matrix; λ = 1e-6)
+        Nsupport, V = size(candidates)
+        @assert Ndesign < Nsupport "Design points must be < than support candidates."
+        @assert k < Ndesign "Cannot exchange more rows(k) than are present in the design."
+        init_samples = sample(1:Nsupport, Ndesign; replace = false)
+        Xdesign = candidates[init_samples,:]
+        Xsupport = candidates[ setdiff(1:Nsupport, init_samples),:]
+        Nsupport -= Ndesign 
+        #ToDo: implement invertible starting design algorithm.
+        tihkinov = Diagonal(ones(V) .* λ)
+        
+        while(true) 
+            XdtXd       = inv( Xdesign' * Xdesign + tihkinov )
+            σ_design    = [ r' * XdtXd * r for r in eachrow( Xdesign ) ]
+            biggest_ds = -Inf
+            for nd in sortperm( σ_design )[1:k]
+                biggest_ds = -Inf
+                pair = (0,0)
+                σ_k_design  = Xdesign[nd,:]' * XdtXd * Xdesign[nd,:]
+                for ns in 1:Nsupport    
+                    σ_support   = Xsupport[ns,:]' * XdtXd * Xsupport[ns,:]
+                    σ_ds    = Xdesign[nd,:]' * XdtXd * Xsupport[ns,:]
+                    ds      = σ_support - ((σ_k_design * σ_support) - (σ_ds ^ 2) ) - σ_k_design
+                    if ds > biggest_ds
+                        biggest_ds = ds
+                        pair    = (nd, ns)
+                    end
+                end
+                (biggest_ds <= 0) && break
+                tmp = Xdesign[first(pair),:]
+                Xdesign[first(pair),:] = Xsupport[last(pair),:]
+                Xsupport[last(pair),:] = tmp    
+            end
+            (biggest_ds <= 0) && break
+        end
+        return (    score = det(inv( Xdesign' * Xdesign + tihkinov )), 
+                    design = Xdesign )
+    end
+    export k_exchange_D
 end
 
